@@ -27,12 +27,13 @@ memoria = {}
 # 🧠 Track processed messages
 mensagens_processadas = set()
 
-# 🔁 IA fallback control
-ia_ativa = ["cohere", "openai", "claude"]
+# 🔁 IA pool
+ia_disponiveis = ["cohere", "openai", "claude"]
 
-# 🎭 Detect emotional mode with expanded triggers
+# 🎭 Detect emotional mode with expanded triggers + caps lock
 def detectar_modo(mensagem):
-    mensagem = mensagem.lower()
+    mensagem = mensagem.strip()
+    texto = mensagem.lower()
 
     gatilhos_indignada = [
         "burra", "idiota", "inútil", "lixo", "cala a boca", "não serve", "feia", "resposta ruim",
@@ -58,14 +59,22 @@ def detectar_modo(mensagem):
         "você é minha tempestade", "você é minha cura", "você é minha escuridão segura"
     ]
 
-    if any(p in mensagem for p in gatilhos_indignada):
+    if any(p in texto for p in gatilhos_indignada):
         return "indignada"
-    elif any(p in mensagem for p in gatilhos_acalmada):
-        return "acalmada"
-    else:
+    elif any(p in texto for p in gatilhos_acalmada):
         return "acalmada"
 
-# 🧵 Generate response with persistent fallback
+    # CAPS LOCK como grito
+    palavras = mensagem.split()
+    if palavras:
+        caps = [p for p in palavras if p.isupper() and len(p) > 2]
+        proporcao_caps = len(caps) / len(palavras)
+        if proporcao_caps >= 0.7:
+            return "indignada"
+
+    return "acalmada"
+
+# 🧵 Generate response using one random IA
 def gerar_resposta(mensagem, user_id):
     modo = detectar_modo(mensagem)
 
@@ -82,7 +91,9 @@ def gerar_resposta(mensagem, user_id):
         f"You are Gótica Indignada, a calm goth woman. Respond briefly, with empathy and realism.\nConversation history:\n{historico}\nUser: {mensagem}"
     ])
 
-    for ia in ia_ativa.copy():
+    tentativas = ia_disponiveis.copy()
+    while tentativas:
+        ia = random.choice(tentativas)
         try:
             if ia == "cohere":
                 response = co.generate(
@@ -120,7 +131,8 @@ def gerar_resposta(mensagem, user_id):
 
         except Exception as e:
             print(f"{ia} falhou e foi removida: {e}")
-            ia_ativa.remove(ia)
+            ia_disponiveis.remove(ia)
+            tentativas.remove(ia)
 
     return "Todas as vozes se calaram. Nenhuma IA quer falar comigo agora."
 
