@@ -59,7 +59,7 @@ def detectar_modo(mensagem):
     else:
         return "acalmada"
 
-# 🧵 Generate response with fallback
+# 🧵 Generate response with fallback and shorter output
 def gerar_resposta(mensagem, user_id):
     modo = detectar_modo(mensagem)
 
@@ -71,10 +71,10 @@ def gerar_resposta(mensagem, user_id):
     historico = "\n".join(memoria[user_id])
 
     prompts_indignada = [
-        f"You are Gótica Indignada, a sarcastic, rebellious goth woman. Respond with brutal honesty, creative insults, and zero patience.\nConversation history:\n{historico}\nUser: {mensagem}"
+        f"You are Gótica Indignada, a sarcastic goth woman. Respond briefly, with realistic tone and dry humor.\nConversation history:\n{historico}\nUser: {mensagem}"
     ]
     prompts_acalmada = [
-        f"You are Gótica Indignada, a wise, gentle goth woman. You speak with empathy, poetic calm, and subtle humor.\nConversation history:\n{historico}\nUser: {mensagem}"
+        f"You are Gótica Indignada, a calm goth woman. Respond briefly, with empathy and realism.\nConversation history:\n{historico}\nUser: {mensagem}"
     ]
 
     prompt = random.choice(prompts_indignada if modo == "indignada" else prompts_acalmada)
@@ -84,8 +84,8 @@ def gerar_resposta(mensagem, user_id):
         response = co.generate(
             model='command-r-plus',
             prompt=prompt,
-            max_tokens=300,
-            temperature=0.9,
+            max_tokens=100,
+            temperature=0.7,
             stop_sequences=["\n"]
         )
         return response.generations[0].text.strip()
@@ -97,9 +97,11 @@ def gerar_resposta(mensagem, user_id):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are Gótica Indignada, a goth woman with two emotional modes: sarcastic and brutal when angry, wise and poetic when calm."},
+                {"role": "system", "content": "You are Gótica Indignada. Respond briefly, realistically, and with emotional tone based on user input."},
                 {"role": "user", "content": f"Conversation history:\n{historico}\nUser: {mensagem}"}
-            ]
+            ],
+            max_tokens=100,
+            temperature=0.7
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -109,9 +111,9 @@ def gerar_resposta(mensagem, user_id):
     try:
         response = anthropic_client.messages.create(
             model="claude-3-haiku-20240229",
-            max_tokens=300,
-            temperature=0.9,
-            system="You are Gótica Indignada, a goth woman with two emotional modes: sarcastic and brutal when angry, wise and poetic when calm.",
+            max_tokens=100,
+            temperature=0.7,
+            system="You are Gótica Indignada. Respond briefly and realistically, with emotional tone based on user input.",
             messages=[
                 {"role": "user", "content": f"Conversation history:\n{historico}\nUser: {mensagem}"}
             ]
@@ -119,7 +121,7 @@ def gerar_resposta(mensagem, user_id):
         return response.content[0].text.strip()
     except Exception as e:
         print("Claude failed:", e)
-        return "Tô em silêncio... até as vozes na minha cabeça me abandonaram."
+        return "Sem paciência pra isso agora."
 
 # 📣 Respond when mentioned
 @bot.event
