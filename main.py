@@ -81,9 +81,9 @@ async def gerar_resposta(mensagem, user_id):
     historico = "\n".join(memoria[user_id])
 
     prompt = random.choice([
-        f"You are Gótica Indignada, a sarcastic goth woman. Respond in one or two short sentences, with dry humor and realism.\nConversation history:\n{historico}\nUser: {mensagem}"
+        f"You are Gótica Indignada, a sarcastic goth woman. Respond in one or two short sentences, with dry humor and realism.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
     ] if modo == "indignada" else [
-        f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nConversation history:\n{historico}\nUser: {mensagem}"
+        f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
     ])
 
     try:
