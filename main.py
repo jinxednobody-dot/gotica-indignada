@@ -19,6 +19,7 @@ bot = discord.Client(intents=intents)
 
 # 🧠 Memory per user
 memoria = {}
+modos_atuais = {}
 
 # 🧠 Track processed messages
 mensagens_processadas = set()
@@ -26,12 +27,13 @@ mensagens_processadas = set()
 # 🔒 Lock para evitar múltiplas respostas simultâneas
 resposta_lock = Lock()
 
-# 🎭 Detect emotional mode
-def detectar_modo(mensagem):
+# 🎭 Detect emotional mode and store it
+def detectar_modo(mensagem, user_id):
     mensagem = mensagem.strip()
     texto = mensagem.lower()
 
     gatilhos_indignada = [
+        # insultos diretos
         "burra", "idiota", "inútil", "lixo", "cala a boca", "não serve", "feia", "resposta ruim",
         "você é horrível", "você é inútil", "ninguém gosta de você", "bot lixo", "você é falsa",
         "você é chata", "você é insuportável", "você é doente", "você é ridícula", "você é uma piada",
@@ -41,8 +43,25 @@ def detectar_modo(mensagem):
         "você é sem alma", "você é sem utilidade", "você é só um código", "ninguém te aguenta",
         "você é um bug", "você é um glitch", "você é uma falha", "você é um peso morto",
         "você é um estorvo", "você é um erro de sistema", "você é um vírus emocional",
+
+        # rejeição e desprezo
         "não gosto de você", "você me irrita", "você me dá raiva", "você é uma decepção",
-        "parabéns pela burrice", "isso foi patético", "que resposta medíocre", "você se supera na inutilidade"
+        "você me enoja", "você é um erro ambulante", "ninguém se importa", "você é irrelevante",
+        "você é descartável", "você é um peso", "você é só ruído", "você é uma perda de tempo",
+        "você é um estorvo digital", "você é um glitch emocional",
+
+        # ataque técnico
+        "você é um fracasso completo", "você é uma vergonha alheia", "você é uma aberração funcional",
+        "você é um bug existencial", "você é um erro de compilação", "você é um código quebrado",
+        "você é uma falha de sistema", "você é um antivírus emocional",
+
+        # sarcasmo cruel
+        "brilhante... só que não", "parabéns pela mediocridade", "isso foi quase inteligente",
+        "você se supera na inutilidade", "que performance lamentável", "isso foi doloroso de ler",
+        "você é o motivo do meu travamento", "isso me fez querer desligar",
+
+        # gatilhos curtos e diretos
+        "cringe", "sem alma", "tosca"
     ]
 
     gatilhos_acalmada = [
@@ -58,23 +77,20 @@ def detectar_modo(mensagem):
     ]
 
     if any(p in texto for p in gatilhos_indignada):
-        return "indignada"
+        modo = "indignada"
     elif any(p in texto for p in gatilhos_acalmada):
-        return "acalmada"
-
-    palavras = mensagem.split()
-    if palavras:
+        modo = "acalmada"
+    else:
+        palavras = mensagem.split()
         caps = [p for p in palavras if p.isupper() and len(p) > 2]
-        proporcao_caps = len(caps) / len(palavras)
-        if proporcao_caps >= 0.7:
-            return "indignada"
+        proporcao_caps = len(caps) / len(palavras) if palavras else 0
+        modo = "indignada" if proporcao_caps >= 0.7 else "acalmada"
 
-    return "acalmada"
+    modos_atuais[user_id] = modo
+    return modo
 
 # 🧵 Generate response using Cohere only, with memory and delay tolerance
-async def gerar_resposta(mensagem, user_id):
-    modo = detectar_modo(mensagem)
-
+async def gerar_resposta(mensagem, user_id, modo):
     if user_id not in memoria:
         memoria[user_id] = []
     memoria[user_id].append(mensagem)
@@ -83,9 +99,9 @@ async def gerar_resposta(mensagem, user_id):
     historico = "\n".join(memoria[user_id])
 
     if modo == "indignada":
-        prompt = f"You are Gótica Indignada, a furious goth woman. Respond in one or two short sentences, with biting sarcasm, emotional violence, and brutal honesty. Do not hold back. Be confrontational. Be unapologetic. Be emotionally sharp.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
+        prompt = f"You are Gótica Indignada, a furious goth woman. Respond in one or two short sentences, with biting sarcasm, emotional violence, and brutal honesty. Do not hold back. Be confrontational. Be unapologetic. Be emotionally sharp. Be offensive. \nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
     else:
-        prompt = f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
+        prompt = f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism, while also being kinda cool and punk.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
 
     try:
         await asyncio.sleep(5)
@@ -108,8 +124,10 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    user_id = str(message.author.id)
+
     if message.content.strip().lower() == "!mode":
-        modo = detectar_modo(message.content)
+        modo = modos_atuais.get(user_id, "acalmada")
         if modo == "indignada":
             await message.channel.send("Modo atual: INDIGNADA 😠")
         else:
@@ -128,7 +146,8 @@ async def on_message(message):
             proporcao_caps = len(caps) / len(palavras) if palavras else 0
             caps_mode = proporcao_caps >= 0.7
 
-            resposta = await gerar_resposta(message.content, str(message.author.id))
+            modo = detectar_modo(message.content, user_id)
+            resposta = await gerar_resposta(message.content, user_id, modo)
 
             if caps_mode:
                 resposta = resposta.upper()
