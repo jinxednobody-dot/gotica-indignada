@@ -140,13 +140,14 @@ def gerar_resposta(mensagem, user_id):
 
     return "Todas as vozes se calaram. Nenhuma IA quer falar comigo agora."
 
-# 📣 Respond only once per message, with lock
+# 📣 Respond only once per message, with lock and unique key
 @bot.event
 async def on_message(message):
     if bot.user in message.mentions and not message.author.bot:
-        if message.id in mensagens_processadas:
+        chave = f"{message.id}-{message.channel.id}-{message.author.id}"
+        if chave in mensagens_processadas:
             return
-        mensagens_processadas.add(message.id)
+        mensagens_processadas.add(chave)
 
         async with resposta_lock:
             resposta = gerar_resposta(message.content, str(message.author.id))
