@@ -27,6 +27,9 @@ memoria = {}
 # 🧠 Track processed messages
 mensagens_processadas = set()
 
+# 🔁 IA fallback control
+ia_ativa = ["cohere", "openai", "claude"]
+
 # 🎭 Detect emotional mode with expanded triggers
 def detectar_modo(mensagem):
     mensagem = mensagem.lower()
@@ -62,7 +65,7 @@ def detectar_modo(mensagem):
     else:
         return "acalmada"
 
-# 🧵 Generate response with fallback and shorter output
+# 🧵 Generate response with persistent fallback
 def gerar_resposta(mensagem, user_id):
     modo = detectar_modo(mensagem)
 
@@ -73,58 +76,53 @@ def gerar_resposta(mensagem, user_id):
 
     historico = "\n".join(memoria[user_id])
 
-    prompts_indignada = [
+    prompt = random.choice([
         f"You are Gótica Indignada, a sarcastic goth woman. Respond briefly, with realistic tone and dry humor.\nConversation history:\n{historico}\nUser: {mensagem}"
-    ]
-    prompts_acalmada = [
+    ] if modo == "indignada" else [
         f"You are Gótica Indignada, a calm goth woman. Respond briefly, with empathy and realism.\nConversation history:\n{historico}\nUser: {mensagem}"
-    ]
+    ])
 
-    prompt = random.choice(prompts_indignada if modo == "indignada" else prompts_acalmada)
+    for ia in ia_ativa.copy():
+        try:
+            if ia == "cohere":
+                response = co.generate(
+                    model='command-r-plus',
+                    prompt=prompt,
+                    max_tokens=100,
+                    temperature=0.7,
+                    stop_sequences=["\n"]
+                )
+                return response.generations[0].text.strip()
 
-    # Try Cohere
-    try:
-        response = co.generate(
-            model='command-r-plus',
-            prompt=prompt,
-            max_tokens=100,
-            temperature=0.7,
-            stop_sequences=["\n"]
-        )
-        return response.generations[0].text.strip()
-    except Exception as e:
-        print("Cohere failed:", e)
+            elif ia == "openai":
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are Gótica Indignada. Respond briefly, realistically, and with emotional tone based on user input."},
+                        {"role": "user", "content": f"Conversation history:\n{historico}\nUser: {mensagem}"}
+                    ],
+                    max_tokens=100,
+                    temperature=0.7
+                )
+                return response.choices[0].message.content.strip()
 
-    # Try OpenAI
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are Gótica Indignada. Respond briefly, realistically, and with emotional tone based on user input."},
-                {"role": "user", "content": f"Conversation history:\n{historico}\nUser: {mensagem}"}
-            ],
-            max_tokens=100,
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print("OpenAI failed:", e)
+            elif ia == "claude":
+                response = anthropic_client.messages.create(
+                    model="claude-3-haiku-20240229",
+                    max_tokens=100,
+                    temperature=0.7,
+                    system="You are Gótica Indignada. Respond briefly and realistically, with emotional tone based on user input.",
+                    messages=[
+                        {"role": "user", "content": f"Conversation history:\n{historico}\nUser: {mensagem}"}
+                    ]
+                )
+                return response.content[0].text.strip()
 
-    # Try Claude
-    try:
-        response = anthropic_client.messages.create(
-            model="claude-3-haiku-20240229",
-            max_tokens=100,
-            temperature=0.7,
-            system="You are Gótica Indignada. Respond briefly and realistically, with emotional tone based on user input.",
-            messages=[
-                {"role": "user", "content": f"Conversation history:\n{historico}\nUser: {mensagem}"}
-            ]
-        )
-        return response.content[0].text.strip()
-    except Exception as e:
-        print("Claude failed:", e)
-        return "Sem paciência pra isso agora."
+        except Exception as e:
+            print(f"{ia} falhou e foi removida: {e}")
+            ia_ativa.remove(ia)
+
+    return "Todas as vozes se calaram. Nenhuma IA quer falar comigo agora."
 
 # 📣 Respond only once per message
 @bot.event
