@@ -17,6 +17,9 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
+# 🧠 Memory per user
+memoria = {}
+
 # 🧠 Track processed messages
 mensagens_processadas = set()
 
@@ -66,22 +69,29 @@ def detectar_modo(mensagem):
 
     return "acalmada"
 
-# 🧵 Generate response using Cohere only, with delay tolerance
-async def gerar_resposta(mensagem):
+# 🧵 Generate response using Cohere only, with memory and delay tolerance
+async def gerar_resposta(mensagem, user_id):
     modo = detectar_modo(mensagem)
 
+    if user_id not in memoria:
+        memoria[user_id] = []
+    memoria[user_id].append(mensagem)
+    memoria[user_id] = memoria[user_id][-5:]
+
+    historico = "\n".join(memoria[user_id])
+
     prompt = random.choice([
-        f"You are Gótica Indignada, a sarcastic goth woman. Respond in one or two short sentences, with dry humor and realism.\nUser: {mensagem}"
+        f"You are Gótica Indignada, a sarcastic goth woman. Respond in one or two short sentences, with dry humor and realism.\nConversation history:\n{historico}\nUser: {mensagem}"
     ] if modo == "indignada" else [
-        f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nUser: {mensagem}"
+        f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nConversation history:\n{historico}\nUser: {mensagem}"
     ])
 
     try:
-        await asyncio.sleep(5)  # ⏳ Aguarda até 5 segundos antes de considerar falha
+        await asyncio.sleep(5)
         response = co.generate(
             model='command-r-plus',
             prompt=prompt,
-            max_tokens=60,  # 🔒 Resposta curta
+            max_tokens=60,
             temperature=0.7,
             stop_sequences=["\n"]
         )
@@ -91,7 +101,7 @@ async def gerar_resposta(mensagem):
         print(f"Erro real na Cohere: {e}")
         return "Não tô afim de falar agora."
 
-# 📣 Respond only once per message
+# 📣 Respond only once per message, with CAPS LOCK detection
 @bot.event
 async def on_message(message):
     if bot.user in message.mentions and not message.author.bot:
@@ -101,7 +111,16 @@ async def on_message(message):
         mensagens_processadas.add(chave)
 
         async with resposta_lock:
-            resposta = await gerar_resposta(message.content)
+            palavras = message.content.split()
+            caps = [p for p in palavras if p.isupper() and len(p) > 2]
+            proporcao_caps = len(caps) / len(palavras) if palavras else 0
+            caps_mode = proporcao_caps >= 0.7
+
+            resposta = await gerar_resposta(message.content, str(message.author.id))
+
+            if caps_mode:
+                resposta = resposta.upper()
+
             await message.channel.send(resposta)
 
 bot.run(DISCORD_TOKEN)
