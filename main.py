@@ -40,7 +40,9 @@ def detectar_modo(mensagem):
         "você é uma vergonha", "você é patética", "você é um robô burro", "você é sem graça",
         "você é sem alma", "você é sem utilidade", "você é só um código", "ninguém te aguenta",
         "você é um bug", "você é um glitch", "você é uma falha", "você é um peso morto",
-        "você é um estorvo", "você é um erro de sistema", "você é um vírus emocional"
+        "você é um estorvo", "você é um erro de sistema", "você é um vírus emocional",
+        "não gosto de você", "você me irrita", "você me dá raiva", "você é uma decepção",
+        "parabéns pela burrice", "isso foi patético", "que resposta medíocre", "você se supera na inutilidade"
     ]
 
     gatilhos_acalmada = [
@@ -100,10 +102,21 @@ async def gerar_resposta(mensagem, user_id):
         print(f"Erro real na Cohere: {e}")
         return "Não tô afim de falar agora."
 
-# 📣 Respond only once per message, with CAPS LOCK detection
+# 📣 Respond only once per message, with CAPS LOCK and !mode detection
 @bot.event
 async def on_message(message):
-    if bot.user in message.mentions and not message.author.bot:
+    if message.author.bot:
+        return
+
+    if message.content.strip().lower() == "!mode":
+        modo = detectar_modo(message.content)
+        if modo == "indignada":
+            await message.channel.send("Modo atual: INDIGNADA 😠")
+        else:
+            await message.channel.send("Modo atual: ACALMADA 🖤")
+        return
+
+    if bot.user in message.mentions:
         chave = f"{message.id}-{message.channel.id}-{message.author.id}"
         if chave in mensagens_processadas:
             return
