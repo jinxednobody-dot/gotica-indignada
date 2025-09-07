@@ -2,6 +2,7 @@ import discord
 import cohere
 import os
 import random
+import asyncio
 from asyncio import Lock
 
 # 🔐 API Keys via environment variables
@@ -65,28 +66,30 @@ def detectar_modo(mensagem):
 
     return "acalmada"
 
-# 🧵 Generate response using Cohere only
-def gerar_resposta(mensagem):
+# 🧵 Generate response using Cohere only, with delay tolerance
+async def gerar_resposta(mensagem):
     modo = detectar_modo(mensagem)
 
     prompt = random.choice([
-        f"You are Gótica Indignada, a sarcastic goth woman. Respond briefly, with realistic tone and dry humor.\nUser: {mensagem}"
+        f"You are Gótica Indignada, a sarcastic goth woman. Respond in one or two short sentences, with dry humor and realism.\nUser: {mensagem}"
     ] if modo == "indignada" else [
-        f"You are Gótica Indignada, a calm goth woman. Respond briefly, with empathy and realism.\nUser: {mensagem}"
+        f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nUser: {mensagem}"
     ])
 
     try:
+        await asyncio.sleep(5)  # ⏳ Aguarda até 5 segundos antes de considerar falha
         response = co.generate(
             model='command-r-plus',
             prompt=prompt,
-            max_tokens=100,
+            max_tokens=60,  # 🔒 Resposta curta
             temperature=0.7,
             stop_sequences=["\n"]
         )
-        return response.generations[0].text.strip()
+        texto = response.generations[0].text.strip()
+        return texto if texto else "Não tô afim de falar agora."
     except Exception as e:
-        print(f"Cohere falhou: {e}")
-        return "Hoje não. A IA que me sustenta desabou."
+        print(f"Erro real na Cohere: {e}")
+        return "Não tô afim de falar agora."
 
 # 📣 Respond only once per message
 @bot.event
@@ -98,7 +101,7 @@ async def on_message(message):
         mensagens_processadas.add(chave)
 
         async with resposta_lock:
-            resposta = gerar_resposta(message.content)
+            resposta = await gerar_resposta(message.content)
             await message.channel.send(resposta)
 
 bot.run(DISCORD_TOKEN)
