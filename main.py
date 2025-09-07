@@ -80,11 +80,10 @@ async def gerar_resposta(mensagem, user_id):
 
     historico = "\n".join(memoria[user_id])
 
-    prompt = random.choice([
-        f"You are Gótica Indignada, a sarcastic goth woman. Respond in one or two short sentences, with dry humor and realism.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
-    ] if modo == "indignada" else [
-        f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
-    ])
+    if modo == "indignada":
+        prompt = f"You are Gótica Indignada, a furious goth woman. Respond in one or two short sentences, with biting sarcasm, emotional violence, and brutal honesty. Do not hold back. Be confrontational. Be unapologetic. Be emotionally sharp.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
+    else:
+        prompt = f"You are Gótica Indignada, a calm goth woman. Respond in one or two short sentences, with empathy and realism.\nUser: {mensagem}\n(Use emotional tone based on recent user behavior: {historico})"
 
     try:
         await asyncio.sleep(5)
