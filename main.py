@@ -4,6 +4,7 @@ import openai
 import anthropic
 import os
 import random
+from asyncio import Lock
 
 # 🔐 API Keys via environment variables
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -29,6 +30,9 @@ mensagens_processadas = set()
 
 # 🔁 IA pool
 ia_disponiveis = ["cohere", "openai", "claude"]
+
+# 🔒 Lock para evitar múltiplas respostas simultâneas
+resposta_lock = Lock()
 
 # 🎭 Detect emotional mode with expanded triggers + caps lock
 def detectar_modo(mensagem):
@@ -136,7 +140,7 @@ def gerar_resposta(mensagem, user_id):
 
     return "Todas as vozes se calaram. Nenhuma IA quer falar comigo agora."
 
-# 📣 Respond only once per message
+# 📣 Respond only once per message, with lock
 @bot.event
 async def on_message(message):
     if bot.user in message.mentions and not message.author.bot:
@@ -144,7 +148,8 @@ async def on_message(message):
             return
         mensagens_processadas.add(message.id)
 
-        resposta = gerar_resposta(message.content, str(message.author.id))
-        await message.channel.send(resposta)
+        async with resposta_lock:
+            resposta = gerar_resposta(message.content, str(message.author.id))
+            await message.channel.send(resposta)
 
 bot.run(DISCORD_TOKEN)
