@@ -24,6 +24,9 @@ bot = discord.Client(intents=intents)
 # 🧠 Memory per user
 memoria = {}
 
+# 🧠 Track processed messages
+mensagens_processadas = set()
+
 # 🎭 Detect emotional mode with expanded triggers
 def detectar_modo(mensagem):
     mensagem = mensagem.lower()
@@ -123,10 +126,14 @@ def gerar_resposta(mensagem, user_id):
         print("Claude failed:", e)
         return "Sem paciência pra isso agora."
 
-# 📣 Respond when mentioned
+# 📣 Respond only once per message
 @bot.event
 async def on_message(message):
     if bot.user in message.mentions and not message.author.bot:
+        if message.id in mensagens_processadas:
+            return
+        mensagens_processadas.add(message.id)
+
         resposta = gerar_resposta(message.content, str(message.author.id))
         await message.channel.send(resposta)
 
