@@ -1,7 +1,5 @@
 import discord
 import cohere
-import openai
-import anthropic
 import os
 import random
 from asyncio import Lock
@@ -9,13 +7,9 @@ from asyncio import Lock
 # 🔐 API Keys via environment variables
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 
-# 🧠 Initialize APIs
+# 🧠 Initialize Cohere
 co = cohere.Client(COHERE_API_KEY)
-openai.api_key = OPENAI_API_KEY
-anthropic_client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 
 # ⚙️ Discord bot setup
 intents = discord.Intents.default()
@@ -28,7 +22,7 @@ mensagens_processadas = set()
 # 🔒 Lock para evitar múltiplas respostas simultâneas
 resposta_lock = Lock()
 
-# 🎭 Detect emotional mode with expanded triggers + caps lock
+# 🎭 Detect emotional mode
 def detectar_modo(mensagem):
     mensagem = mensagem.strip()
     texto = mensagem.lower()
@@ -71,7 +65,7 @@ def detectar_modo(mensagem):
 
     return "acalmada"
 
-# 🧵 Generate response using one random IA only
+# 🧵 Generate response using Cohere only
 def gerar_resposta(mensagem):
     modo = detectar_modo(mensagem)
 
@@ -81,47 +75,20 @@ def gerar_resposta(mensagem):
         f"You are Gótica Indignada, a calm goth woman. Respond briefly, with empathy and realism.\nUser: {mensagem}"
     ])
 
-    ia = random.choice(["cohere", "openai", "claude"])
     try:
-        if ia == "cohere":
-            response = co.generate(
-                model='command-r-plus',
-                prompt=prompt,
-                max_tokens=100,
-                temperature=0.7,
-                stop_sequences=["\n"]
-            )
-            return response.generations[0].text.strip()
-
-        elif ia == "openai":
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are Gótica Indignada. Respond briefly, realistically, and with emotional tone based on user input."},
-                    {"role": "user", "content": mensagem}
-                ],
-                max_tokens=100,
-                temperature=0.7
-            )
-            return response.choices[0].message.content.strip()
-
-        elif ia == "claude":
-            response = anthropic_client.messages.create(
-                model="claude-3-haiku-20240229",
-                max_tokens=100,
-                temperature=0.7,
-                system="You are Gótica Indignada. Respond briefly and realistically, with emotional tone based on user input.",
-                messages=[
-                    {"role": "user", "content": mensagem}
-                ]
-            )
-            return response.content[0].text.strip()
-
+        response = co.generate(
+            model='command-r-plus',
+            prompt=prompt,
+            max_tokens=100,
+            temperature=0.7,
+            stop_sequences=["\n"]
+        )
+        return response.generations[0].text.strip()
     except Exception as e:
-        print(f"{ia} falhou: {e}")
+        print(f"Cohere falhou: {e}")
         return "Hoje não. A IA que me sustenta desabou."
 
-# 📣 Respond only once per message, with lock and unique key
+# 📣 Respond only once per message
 @bot.event
 async def on_message(message):
     if bot.user in message.mentions and not message.author.bot:
